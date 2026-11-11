@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/app';
 import { Spinner } from '@/components/ui';
 import type { SessionUser } from '@/lib/types';
+import { isNative, serverUrl, setServerUrl, setToken } from '@/lib/native';
 
 type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
@@ -31,11 +32,13 @@ export default function Auth({ mode }: { mode: Mode }) {
     setBusy(true);
     try {
       if (mode === 'login') {
-        const r = await api.post<{ user: SessionUser }>('/auth/login', { login: f.login, password: f.password });
+        const r = await api.post<{ user: SessionUser; token?: string }>('/auth/login', { login: f.login, password: f.password });
+        if (r.token) setToken(r.token);
         setUser(r.user);
         nav(r.user.prefs?.onboarded ? next : '/welcome', { replace: true });
       } else if (mode === 'register') {
-        const r = await api.post<{ user: SessionUser }>('/auth/register', { email: f.email, username: f.username, password: f.password });
+        const r = await api.post<{ user: SessionUser; token?: string }>('/auth/register', { email: f.email, username: f.username, password: f.password });
+        if (r.token) setToken(r.token);
         setUser(r.user);
         nav('/welcome', { replace: true });
       } else if (mode === 'forgot') {
@@ -106,6 +109,9 @@ export default function Auth({ mode }: { mode: Mode }) {
             {mode === 'login' ? <>New here? <Link to="/register" className="link">Create an account</Link></> : <>Have an account? <Link to="/login" className="link">Sign in</Link></>}
           </p>
           <p className="text-xs text-muted mt-3 text-center"><Link to="/discover" className="hover:text-fg">Browse without an account →</Link></p>
+          {isNative && (
+            <p className="text-xs text-muted mt-6 text-center">Server: {serverUrl().replace(/^https?:\/\//, '')} · <button type="button" className="link" onClick={() => { setServerUrl(null); location.replace('/'); }}>Change</button></p>
+          )}
         </div>
       </div>
     </div>

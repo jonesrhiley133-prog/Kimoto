@@ -1,5 +1,7 @@
-import { lazy, Suspense, type ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { initNative, isNative, onNotificationTap, serverUrl } from '@/lib/native';
 import { useAuth } from '@/hooks/app';
 import { Layout } from '@/components/Layout';
 import { PageLoader } from '@/components/ui';
@@ -25,6 +27,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Settings = lazy(() => import('./pages/settings/Settings'));
 const Moderation = lazy(() => import('./pages/Moderation'));
 const Misc = lazy(() => import('./pages/Misc'));
+const ServerSetup = lazy(() => import('./pages/ServerSetup'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -38,6 +41,18 @@ const P = (el: ReactNode) => <RequireAuth>{el}</RequireAuth>;
 
 export function App() {
   const { user } = useAuth();
+  const nav = useNavigate();
+  const qc = useQueryClient();
+  useEffect(() => {
+    initNative({
+      navigateBack: () => nav(-1),
+      // Coming back to the app (e.g. after authorizing MAL/AniList in the browser): refresh live data.
+      onResume: () => { qc.invalidateQueries(); window.dispatchEvent(new Event('focus')); },
+    });
+    onNotificationTap((link) => nav(link));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Native app without a server configured yet: ask for one first.
+  if (isNative && !serverUrl()) return <Suspense fallback={<PageLoader />}><ServerSetup /></Suspense>;
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>

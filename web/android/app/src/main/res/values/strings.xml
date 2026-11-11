@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kimoto</string>
+    <string name="title_activity_main">Kimoto</string>
+    <string name="package_name">app.kimoto.reader</string>
+    <string name="custom_url_scheme">app.kimoto.reader</string>
+</resources>

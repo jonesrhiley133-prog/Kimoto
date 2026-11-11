@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { q, tx, now, json } from '../db/index.js';
 import { config } from '../config.js';
@@ -10,6 +10,9 @@ import { id, sha256 } from '../lib/util.js';
 import { getPrefs } from '../services/prefs.js';
 
 export const auth = Router();
+
+/** The native app asks for its session token in the response body (it can't use cookies cross-origin). */
+const isApp = (req: Request) => req.headers['x-kimoto-client'] === 'app';
 
 const username = z.string().min(3).max(24).regex(/^[a-zA-Z0-9_]+$/, 'letters, numbers and underscores only');
 const password = z.string().min(8, 'at least 8 characters').max(200);
@@ -55,9 +58,9 @@ auth.post('/register', rateLimit('register', 5, 1), h(async (req, res) => {
     q.run('INSERT INTO preferences (user_id, data) VALUES (?, ?)', uid, '{}');
   });
   await sendVerification(uid, b.email).catch((e) => console.error('verification mail failed', e));
-  createSession(res, req, uid);
+  const token = createSession(res, req, uid);
   res.status(201);
-  return { user: sessionUser(uid) };
+  return { user: sessionUser(uid), ...(isApp(req) ? { token } : {}) };
 }));
 
 auth.post('/login', rateLimit('login', 10, 2), h(async (req, res) => {
@@ -66,8 +69,8 @@ auth.post('/login', rateLimit('login', 10, 2), h(async (req, res) => {
   // Always run a hash comparison so response timing doesn't reveal whether the account exists.
   const ok = await verifyPassword(b.password, u?.password_hash ?? 'scrypt$AAAAAAAAAAAAAAAAAAAAAA==$' + 'A'.repeat(86) + '==');
   if (!u || !ok) throw new HttpError(401, 'Incorrect username/email or password.');
-  createSession(res, req, u.id);
-  return { user: sessionUser(u.id) };
+  const token = createSession(res, req, u.id);
+  return { user: sessionUser(u.id), ...(isApp(req) ? { token } : {}) };
 }));
 
 auth.post('/logout', h((req, res) => {

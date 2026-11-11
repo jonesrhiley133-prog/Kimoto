@@ -9,6 +9,8 @@ import { NOVEL_THEMES } from '@/lib/prefs';
 import { Segmented, Select, Toggle } from '@/components/ui';
 import type { ContentType } from '@/lib/types';
 import { subscribePush } from './settings/Notifications';
+import { connectTracker } from './settings/Integrations';
+import { isNative, requestNotificationPermission } from '@/lib/native';
 
 const STEPS = ['Welcome', 'Account', 'Content', 'Genres', 'Reading', 'Trackers', 'Notifications', 'Privacy', 'Theme', 'Done'];
 const LANGS = [['en', 'English'], ['es', 'Spanish'], ['es-la', 'Spanish (LATAM)'], ['pt-br', 'Portuguese (BR)'], ['fr', 'French'], ['de', 'German'], ['it', 'Italian'], ['ru', 'Russian'], ['id', 'Indonesian'], ['vi', 'Vietnamese'], ['ja', 'Japanese'], ['ko', 'Korean'], ['zh', 'Chinese']];
@@ -77,8 +79,8 @@ export default function Onboarding() {
               <h1 className="font-display text-2xl font-bold">Connect MyAnimeList or AniList</h1>
               <p className="text-muted mt-2">Import your existing list and keep progress in sync automatically. Kimoto asks before overwriting anything.</p>
               <div className="flex flex-wrap gap-3 mt-5">
-                <a href="/api/integrations/anilist/connect" className="btn-outline h-11 px-5">Connect AniList</a>
-                <a href="/api/integrations/mal/connect" className="btn-outline h-11 px-5">Connect MyAnimeList</a>
+                <button className="btn-outline h-11 px-5" onClick={() => connectTracker('anilist').catch((e) => alert(e.message))}>Connect AniList</button>
+                <button className="btn-outline h-11 px-5" onClick={() => connectTracker('mal').catch((e) => alert(e.message))}>Connect MyAnimeList</button>
               </div>
               <p className="text-xs text-muted mt-3">You'll come back to Settings after authorizing; finish setup from there or continue here now.</p>
             </div>
@@ -90,8 +92,12 @@ export default function Onboarding() {
                 <Toggle key={k} label={l} checked={prefs.notifications?.categories?.[k] !== false} onChange={(v) => setPrefs({ notifications: { categories: { [k]: v } } })} />
               ))}
               <div className="pt-3 flex flex-wrap gap-2">
-                <button className="btn-outline" onClick={async () => { if ('Notification' in window) { const p = await Notification.requestPermission(); setPrefs({ notifications: { browser: p === 'granted' } }); } }}>Allow browser notifications</button>
-                <button className="btn-outline" onClick={async () => { const ok = await subscribePush(); setPrefs({ notifications: { push: ok } }); }}>Enable push on this device</button>
+                {isNative ? (
+                  <button className="btn-outline" onClick={async () => setPrefs({ notifications: { browser: await requestNotificationPermission() } })}>Allow notifications</button>
+                ) : (<>
+                  <button className="btn-outline" onClick={async () => { if ('Notification' in window) { const p = await Notification.requestPermission(); setPrefs({ notifications: { browser: p === 'granted' } }); } }}>Allow browser notifications</button>
+                  <button className="btn-outline" onClick={async () => { const ok = await subscribePush(); setPrefs({ notifications: { push: ok } }); }}>Enable push on this device</button>
+                </>)}
               </div>
             </div>
           )}

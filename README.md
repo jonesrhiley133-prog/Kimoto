@@ -76,6 +76,10 @@ npm run typecheck
 
 The API tests run against a throwaway database. They cover auth, CSRF, sources and path-traversal protection, reading validation and heartbeat capping, library, lists, comments and blocking, messaging privacy, sync conflict handling, and the rankings opt-out.
 
+## Android app
+
+`web/android` is a native Android app built with Capacitor from the same code as the web app. It connects to any Kimoto server and adds volume-button page turning, keep-screen-on while reading, system notifications, the hardware back button, a themed status bar, and offline reading from downloads. Every push builds an installable APK in GitHub Actions (**Actions → Android app → Artifacts**). See [docs/ANDROID.md](docs/ANDROID.md) to install it, build it yourself, or set up signed releases.
+
 ## Configuration highlights
 
 - **MyAnimeList:** create an app at <https://myanimelist.net/apiconfig> with the redirect URL `PUBLIC_URL/api/integrations/mal/callback`, then set `MAL_CLIENT_ID` (and `MAL_CLIENT_SECRET` if one was issued).
@@ -90,7 +94,8 @@ The API tests run against a throwaway database. They cover auth, CSRF, sources a
 server/     Node + Express + TypeScript API, SQLite, Socket.IO, source providers, sync engine
 web/        React + Vite + Tailwind PWA
 companion/  Discord Rich Presence bridge (desktop)
+web/android Native Android app (Capacitor)
 docs/       ARCHITECTURE.md, SOURCES.md
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the data model, key flows, security and the path to an Android app.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the data model, key flows and security, and [docs/ANDROID.md](docs/ANDROID.md) for the Android app.

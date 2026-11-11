@@ -6,6 +6,7 @@ import { enc } from '@/lib/api';
 import { Segmented, Toggle } from '@/components/ui';
 import type { Entry, Title } from '@/lib/types';
 import { Card } from './Settings';
+import { isNative, requestNotificationPermission } from '@/lib/native';
 
 const b64ToBytes = (b64: string) => {
   const pad = '='.repeat((4 - (b64.length % 4)) % 4);
@@ -55,6 +56,10 @@ export default function NotificationSettings() {
         {CATS.map(([k, l, d]) => <Toggle key={k} label={l} description={d || undefined} checked={n.categories?.[k] !== false} onChange={(v) => setPrefs({ notifications: { categories: { [k]: v } } })} />)}
       </Card>
       <Card title="Delivery">
+        {isNative ? (
+          <Toggle label="Notifications on this phone" description="Shown when something happens while Kimoto is in the background. Delivery while the app is fully closed needs Firebase push, which this build doesn't include yet."
+            checked={n.browser !== false} onChange={async (v) => setPrefs({ notifications: { browser: v ? await requestNotificationPermission() : false } })} />
+        ) : <>
         <Toggle label="Browser notifications" description={perm === 'denied' ? 'Blocked in your browser settings.' : perm === 'unsupported' ? 'Not supported in this browser.' : 'Pop-ups while Kimoto is open in the background.'}
           checked={n.browser !== false && perm === 'granted'} disabled={perm === 'denied' || perm === 'unsupported'}
           onChange={async (v) => { if (v && perm !== 'granted') { const p = await Notification.requestPermission(); setPerm(p); setPrefs({ notifications: { browser: p === 'granted' } }); } else setPrefs({ notifications: { browser: v } }); }} />
@@ -63,6 +68,7 @@ export default function NotificationSettings() {
             if (v) { const ok = await subscribePush(); setPrefs({ notifications: { push: ok } }); if (!ok) toast('Push could not be enabled here (needs the installed/production app and permission).', 'error'); }
             else { await unsubscribePush(); setPrefs({ notifications: { push: false } }); }
           }} />
+        </>}
         <div className="flex items-center justify-between py-2 text-sm gap-3"><span>Push frequency<span className="block text-xs text-muted">Digests bundle notifications into one push.</span></span>
           <Segmented size="sm" value={n.frequency ?? 'instant'} onChange={(v) => setPrefs({ notifications: { frequency: v } })} options={[{ value: 'instant', label: 'Instant' }, { value: 'hourly', label: 'Hourly' }, { value: 'daily', label: 'Daily' }]} /></div>
       </Card>

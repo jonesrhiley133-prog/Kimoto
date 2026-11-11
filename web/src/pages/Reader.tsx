@@ -14,6 +14,7 @@ import { allDownloads, getDownload, markRead, offlinePages } from '@/lib/offline
 import { ReadingSession } from '@/lib/session';
 import { saveProgress } from '@/lib/progress';
 import { setPresence } from '@/lib/discord';
+import { keepAwake, setStatusBarHidden, volumeKeys } from '@/lib/native';
 import { ErrorState, PageLoader, Range, Segmented, Select, Spinner, Toggle } from '@/components/ui';
 import { Comments } from '@/components/comments';
 
@@ -197,6 +198,15 @@ function ReaderView({ data }: { data: Loaded }) {
       return () => clearTimeout(t);
     }
   }, [atEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- native: keep the screen on, volume keys turn pages, status bar follows the toolbar ----------
+  useEffect(() => {
+    keepAwake(true);
+    let off: () => void = () => undefined;
+    volumeKeys(true).then((f) => (off = f));
+    return () => { keepAwake(false); off(); setStatusBarHidden(false); };
+  }, []);
+  useEffect(() => { setStatusBarHidden(!ui); }, [ui]);
 
   // ---------- toolbar visibility ----------
   const poke = useCallback(() => {

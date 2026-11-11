@@ -69,9 +69,15 @@ export function userForToken(token: string | undefined): AuthUser | undefined {
   return row;
 }
 
-/** Populates req.user when a valid session cookie is present. */
+/** Bearer token from the native app, if any. */
+export const bearer = (req: Request) => {
+  const h = req.headers.authorization;
+  return h?.startsWith('Bearer ') ? h.slice(7).trim() : undefined;
+};
+
+/** Populates req.user from a session cookie (web) or a bearer token (native app). */
 export const loadUser: RequestHandler = (req, _res, next) => {
-  req.user = userForToken(req.cookies?.[COOKIE]);
+  req.user = userForToken(bearer(req) ?? req.cookies?.[COOKIE]);
   next();
 };
 
@@ -101,6 +107,8 @@ export const me = (req: Request) => {
 export const csrfGuard: RequestHandler = (req, _res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
   if (req.headers['x-kimoto'] === '1') return next();
+  // Bearer-token requests can't be forged by another site (browsers never attach the token automatically).
+  if (bearer(req)) return next();
   // sendBeacon cannot set headers; allow it only for the session heartbeat endpoint (same-site cookie still required).
   if (req.path.startsWith('/api/reading/sessions/') && req.path.endsWith('/end')) return next();
   next(new HttpError(403, 'Missing request header.'));

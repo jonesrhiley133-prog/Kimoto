@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { q, json, now } from '../db/index.js';
 import { h, body, notFound, bad } from '../lib/http.js';
@@ -29,7 +29,7 @@ integrations.get('/', requireAuth, h((req) => {
   };
 }));
 
-integrations.get('/:provider/connect', requireAuth, h((req, res) => {
+function startOAuth(req: Request) {
   const t = trackers[req.params.provider];
   if (!t) throw notFound();
   if (!t.configured()) throw bad(`${t.name} isn't configured on this server. Set ${t.id === 'mal' ? 'MAL_CLIENT_ID' : 'ANILIST_CLIENT_ID and ANILIST_CLIENT_SECRET'} in .env.`);
@@ -37,8 +37,11 @@ integrations.get('/:provider/connect', requireAuth, h((req, res) => {
   const verifier = id(96); // PKCE verifier (MAL uses the "plain" method, 43–128 chars)
   q.run(`DELETE FROM oauth_states WHERE created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour')`);
   q.run('INSERT INTO oauth_states (state, user_id, provider, verifier) VALUES (?,?,?,?)', state, me(req).id, t.id, verifier);
-  res.redirect(t.authorizeUrl(state, verifier));
-}));
+  return t.authorizeUrl(state, verifier);
+}
+integrations.get('/:provider/connect', requireAuth, h((req, res) => res.redirect(startOAuth(req))));
+/** Native app: get the authorize URL and open it in the system browser. */
+integrations.post('/:provider/connect-url', requireAuth, h((req) => ({ url: startOAuth(req) })));
 
 integrations.get('/:provider/callback', h(async (req, res) => {
   const t = trackers[req.params.provider];

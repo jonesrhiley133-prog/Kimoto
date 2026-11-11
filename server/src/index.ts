@@ -8,7 +8,7 @@ import { ensureSampleLibrary } from './sample.js';
 ensureSampleLibrary();
 const app = createApp();
 const server = http.createServer(app);
-attachRealtime(server, config.publicUrl);
+attachRealtime(server, [config.publicUrl, ...config.appOrigins]);
 startScheduler();
 
 server.listen(config.port, () => {

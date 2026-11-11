@@ -11,7 +11,7 @@ const GRADIENTS = [
   'from-[#6a11cb] to-[#2575fc]', 'from-[#ff512f] to-[#dd2476]', 'from-[#11998e] to-[#38ef7d]', 'from-[#fc4a1a] to-[#f7b733]',
   'from-[#8e2de2] to-[#4a00e0]', 'from-[#00b4db] to-[#0083b0]', 'from-[#ee0979] to-[#ff6a00]', 'from-[#1d2b64] to-[#f8cdda]',
 ];
-const cover = (url: string | null, source: string) => (!url ? null : url.startsWith('/') ? url : `/api/img?src=${source}&u=${enc(url)}`);
+const cover = (url: string | null, _source?: string) => url; // already proxied by the server
 const hourLabel = (h: number) => (h === 0 ? 'midnight' : h < 12 ? `${h} AM` : h === 12 ? 'noon' : `${h - 12} PM`);
 
 export default function Wrapped() {

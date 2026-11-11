@@ -271,3 +271,28 @@ test('rankings respect the opt-out privacy setting', async () => {
   const afterOpt = await anon.get('/rankings/chapters?period=all');
   assert.ok(!afterOpt.data.items.some((i: any) => i.user.username === 'reader1'));
 });
+
+test('native app: bearer-token auth and CORS for app origins only', async () => {
+  const appHeaders = { 'x-kimoto': '1', 'x-kimoto-client': 'app', 'content-type': 'application/json', origin: 'https://localhost' };
+  const reg = await fetch(`${base}/auth/register`, { method: 'POST', headers: appHeaders, body: JSON.stringify({ email: 'app@test.io', username: 'appuser', password: 'password123' }) });
+  assert.equal(reg.status, 201);
+  assert.equal(reg.headers.get('access-control-allow-origin'), 'https://localhost');
+  const { token } = await reg.json();
+  assert.ok(token, 'app clients receive their session token');
+
+  // Bearer requests work without cookies or the CSRF header.
+  const me = await fetch(`${base}/auth/me`, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal((await me.json()).user.username, 'appuser');
+  const put = await fetch(`${base}/library/${enc(MANGA)}`, { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ status: 'planning' }) });
+  assert.equal(put.status, 200);
+
+  // Preflight is answered for app origins, but not for arbitrary websites.
+  const pre = await fetch(`${base}/library`, { method: 'OPTIONS', headers: { origin: 'https://localhost', 'access-control-request-method': 'PUT' } });
+  assert.equal(pre.status, 204);
+  const evil = await fetch(`${base}/auth/me`, { headers: { origin: 'https://evil.example' } });
+  assert.equal(evil.headers.get('access-control-allow-origin'), null);
+
+  // Web clients never get the token in the body.
+  const web = await client().post('/auth/login', { login: 'appuser', password: 'password123' });
+  assert.equal(web.data.token, undefined);
+});

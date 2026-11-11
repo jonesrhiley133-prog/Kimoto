@@ -33,11 +33,13 @@ function broadcastPresence(userId: string, isOn: boolean) {
   for (const f of friendIds(userId)) emitToUser(f, 'presence', { userId, online: isOn, at: now() });
 }
 
-export function attachRealtime(server: HttpServer, corsOrigin: string) {
-  io = new Server(server, { path: '/socket.io', cors: { origin: corsOrigin, credentials: true }, maxHttpBufferSize: 1e5 });
+export function attachRealtime(server: HttpServer, corsOrigins: string[]) {
+  io = new Server(server, { path: '/socket.io', cors: { origin: corsOrigins, credentials: true }, maxHttpBufferSize: 1e5 });
 
   io.use((socket, next) => {
-    const user = userForToken(parseCookie(socket.handshake.headers.cookie, COOKIE));
+    // Native apps pass their token in the handshake; browsers use the session cookie.
+    const token = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
+    const user = userForToken(token ?? parseCookie(socket.handshake.headers.cookie, COOKIE));
     if (!user) return next(new Error('unauthorized'));
     socket.data.user = user;
     next();

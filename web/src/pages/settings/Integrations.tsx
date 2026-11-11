@@ -7,6 +7,14 @@ import { useToast } from '@/hooks/app';
 import { STATUS_LABEL, timeAgo } from '@/lib/format';
 import { Avatar, Cover, Segmented, Spinner, Toggle } from '@/components/ui';
 import { Card } from './Settings';
+import { downloadFile, isNative, openExternal } from '@/lib/native';
+
+/** Web: full-page redirect (keeps the session cookie). App: open the provider in the system browser. */
+export async function connectTracker(id: string) {
+  if (!isNative) return void location.assign(`/api/integrations/${id}/connect`);
+  const { url } = await api.post<{ url: string }>(`/integrations/${id}/connect-url`);
+  await openExternal(url);
+}
 import { useState } from 'react';
 
 interface Provider {
@@ -54,7 +62,7 @@ export default function Integrations() {
               {!p.configured ? (
                 <p className="text-sm text-muted">Not configured on this server. The admin needs to register an API client with {p.name} and set <code className="text-xs">{p.id === 'mal' ? 'MAL_CLIENT_ID' : 'ANILIST_CLIENT_ID / ANILIST_CLIENT_SECRET'}</code> (see README).</p>
               ) : !p.connected ? (
-                <a href={`/api/integrations/${p.id}/connect`} className="btn-primary">Connect {p.name}</a>
+                <button className="btn-primary" onClick={() => connectTracker(p.id).catch((e) => toast(e.message, 'error'))}>Connect {p.name}</button>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
@@ -76,7 +84,7 @@ export default function Integrations() {
             </Card>
           ))}
           <Card title="Export your list" description="A MyAnimeList-format XML file you can import on MAL, AniList and most trackers.">
-            <a href="/api/integrations/export/mal.xml" className="btn-outline" download><Download className="h-4 w-4" />Download mangalist.xml</a>
+            <button className="btn-outline" onClick={() => downloadFile('/integrations/export/mal.xml', 'kimoto-mangalist.xml').catch((e) => toast(e.message, 'error'))}><Download className="h-4 w-4" />Download mangalist.xml</button>
           </Card>
         </>
       )}

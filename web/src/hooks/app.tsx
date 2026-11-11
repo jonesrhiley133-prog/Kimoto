@@ -5,6 +5,7 @@ import type { Notification, SessionUser } from '@/lib/types';
 import { applyTheme, resolveTheme, type ThemeData } from '@/lib/theme';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
 import { setDownloadSettings } from '@/lib/offline';
+import { isNative, localNotify, serverUrl, setStatusBar, setToken } from '@/lib/native';
 
 // ---------------- Toasts ----------------
 type Toast = { id: number; text: string; kind: 'info' | 'error' | 'success'; action?: { label: string; onClick: () => void } };
@@ -51,6 +52,7 @@ const Ctx = createContext<AuthCtx>(null as any);
 export const useAuth = () => useContext(Ctx);
 
 const LOCAL_PREFS = 'kimoto-prefs-cache';
+const USER_CACHE = 'kimoto-user-cache';
 function deepMerge(a: any, b: any): any {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
   const out = { ...(a && typeof a === 'object' && !Array.isArray(a) ? a : {}) };
@@ -72,6 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setUser = useCallback((u: SessionUser | null) => {
     setUserState(u);
+    // Remember who's signed in so the app can open (and read downloads) without a connection.
+    if (u) localStorage.setItem(USER_CACHE, JSON.stringify(u));
+    else localStorage.removeItem(USER_CACHE);
     if (u?.prefs) {
       setPrefsState(u.prefs);
       localStorage.setItem(LOCAL_PREFS, JSON.stringify(u.prefs));
@@ -79,11 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
+    if (isNative && !serverUrl()) return setLoading(false); // app not connected to a server yet
     try {
       const r = await api.get<{ user: SessionUser | null }>('/auth/me');
       setUser(r.user);
     } catch {
-      // Offline: keep cached prefs so the app (and offline reading) still works.
+      // Offline: fall back to the last signed-in user and cached prefs so offline reading still works.
+      try {
+        const cached = localStorage.getItem(USER_CACHE);
+        if (cached) setUserState(JSON.parse(cached));
+      } catch { /* ignore */ }
     } finally {
       setLoading(false);
     }
@@ -113,7 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Apply theme whenever preferences or saved themes change (or a live preview is active).
   useEffect(() => {
-    applyTheme(preview ?? resolveTheme(prefs.appearance, themes));
+    const t = preview ?? resolveTheme(prefs.appearance, themes);
+    applyTheme(t);
+    setStatusBar(t.colors.bg, t.dark);
   }, [prefs.appearance, themes, preview]);
   useEffect(() => setDownloadSettings(prefs.downloads), [prefs.downloads]);
 
@@ -137,6 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const note = new Notification(n.title, { body: n.body, icon: n.imageUrl ?? '/icon.svg', tag: n.id });
         note.onclick = () => { window.focus(); if (n.link) location.assign(n.link); };
       }
+      // In the Android app, show a system notification while the app is in the background.
+      if (isNative && p.browser !== false && document.visibilityState === 'hidden' && !viewingThread) localNotify({ id: n.id, title: n.title, body: n.body, link: n.link });
     };
     s.on('notification', onNotification);
     s.on('connect', loadCounts);
@@ -156,6 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await api.post('/auth/logout').catch(() => undefined);
+    setToken(null);
+    localStorage.removeItem(USER_CACHE);
     setUserState(null);
     qc.clear();
   }, [qc]);

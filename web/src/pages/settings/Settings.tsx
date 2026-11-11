@@ -11,6 +11,7 @@ import { cls, timeAgo } from '@/lib/format';
 import { layoutFrom, NAV_ITEMS, WIDGETS, type NavItem } from '@/lib/prefs';
 import { DEFAULT_DL, enforceStorage } from '@/lib/offline';
 import { onDiscordStatus, testCompanion } from '@/lib/discord';
+import { downloadFile, isNative } from '@/lib/native';
 import { Avatar, Range, Segmented, Select, Spinner, Toggle } from '@/components/ui';
 import Appearance from './Appearance';
 import ReaderSettings from './ReaderSettings';
@@ -28,7 +29,7 @@ export default function Settings() {
   return (
     <div className="grid md:grid-cols-[220px_1fr] gap-6">
       <nav className="md:sticky md:top-20 self-start flex md:flex-col gap-1 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0" aria-label="Settings">
-        {SECTIONS.map(([id, label, Icon]) => (
+        {SECTIONS.filter(([id]) => !(isNative && id === 'discord')).map(([id, label, Icon]) => (
           <NavLink key={id} to={`/settings/${id}`} className={() => cls('flex items-center gap-2.5 rounded px-3 h-9 text-sm whitespace-nowrap shrink-0', section === id ? 'bg-selected/15 text-fg font-medium' : 'text-muted hover:text-fg hover:bg-hover/[0.05]')}>
             <Icon className="h-4 w-4" />{label}
           </NavLink>
@@ -109,7 +110,7 @@ function Account() {
         <button className="btn-outline mt-3" onClick={() => api.del('/auth/sessions/others').then(() => { sessions.refetch(); toast('Signed out other devices', 'success'); })}>Sign out all other devices</button>
       </Card>
       <Card title="Your data" description="Download everything Kimoto stores about you, as JSON.">
-        <a href="/api/auth/export" className="btn-outline" download>Export my data</a>
+        <button className="btn-outline" onClick={() => downloadFile('/auth/export', `kimoto-export-${new Date().toISOString().slice(0, 10)}.json`).catch((e) => toast(e.message, 'error'))}>Export my data</button>
       </Card>
       <Card title="Delete account" description="Permanently deletes your account, library, lists, comments and messages. This cannot be undone.">
         <div className="grid sm:grid-cols-2 gap-3">

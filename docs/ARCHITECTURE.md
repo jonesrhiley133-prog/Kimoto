@@ -73,6 +73,6 @@ The user resolves conflicts in **Settings → Integrations** by keeping either s
 - Upstream responses go through an in-memory TTL cache. Images are cached on disk. Titles and chapters are cached in SQLite and served stale when a source is down.
 - MangaDex requests are serialized to stay under its rate limit.
 
-## Toward Android
+## Android
 
-The web app is already an installable PWA: manifest, service worker, push, offline downloads and touch gestures. The recommended path to a store app is to wrap `web/` with **Capacitor**, which adds native file storage for downloads, hardware volume-key page turning and native push, while reusing the same API. Discord Rich Presence on Android isn't supported by Discord; the companion is desktop-only.
+`web/android` wraps the web bundle with Capacitor. The app runs from a local origin, so it authenticates with a bearer token, which the server issues when the client sends `x-kimoto-client: app`. The server allows the app's origins for cross-origin requests (`APP_ORIGINS`), and the client rewrites server-relative URLs to the chosen server. Native features live in `web/src/lib/native.ts`, plus a small Java plugin for volume keys. See [ANDROID.md](ANDROID.md).

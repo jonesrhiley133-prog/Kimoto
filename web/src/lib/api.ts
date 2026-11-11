@@ -4,14 +4,22 @@ export class ApiError extends Error {
   }
 }
 
+import { absolutize, getToken, isNative, serverUrl } from './native';
+
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const isForm = body instanceof FormData;
+  const token = getToken();
   let res: Response;
   try {
-    res = await fetch(`/api${url}`, {
+    res = await fetch(`${serverUrl()}/api${url}`, {
       method,
-      credentials: 'same-origin',
-      headers: { 'x-kimoto': '1', ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}) },
+      credentials: isNative ? 'omit' : 'same-origin',
+      headers: {
+        'x-kimoto': '1',
+        ...(isNative ? { 'x-kimoto-client': 'app' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}),
+      },
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
   } catch {
@@ -21,7 +29,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
   if (!res.ok) throw new ApiError(res.status, data?.error ?? `Request failed (${res.status})`);
-  return data as T;
+  return absolutize(data) as T;
 }
 
 export const api = {

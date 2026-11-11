@@ -1,4 +1,5 @@
 import { api, enc } from './api';
+import { getToken, isNative, serverUrl } from './native';
 
 /**
  * Measures *active* reading time: the tab must be visible and the reader must have interacted
@@ -76,8 +77,10 @@ export class ReadingSession {
     if (!this.id) return;
     this.tick();
     const body = JSON.stringify(this.payload());
-    const url = `/api/reading/sessions/${enc(this.id)}/end`;
-    if (!navigator.sendBeacon?.(url, new Blob([body], { type: 'text/plain' }))) {
+    const url = `${serverUrl()}/api/reading/sessions/${enc(this.id)}/end`;
+    if (isNative) {
+      fetch(url, { method: 'POST', body, headers: { 'content-type': 'text/plain', Authorization: `Bearer ${getToken()}` }, keepalive: true }).catch(() => undefined);
+    } else if (!navigator.sendBeacon?.(url, new Blob([body], { type: 'text/plain' }))) {
       fetch(url, { method: 'POST', body, headers: { 'content-type': 'text/plain', 'x-kimoto': '1' }, keepalive: true }).catch(() => undefined);
     }
   }

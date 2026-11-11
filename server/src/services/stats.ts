@@ -1,4 +1,5 @@
 import { q, json } from '../db/index.js';
+import { proxied } from '../sources/registry.js';
 
 /**
  * Reading analytics. Everything here is derived from recorded data only:
@@ -71,7 +72,7 @@ export function computeStats(userId: string, range: string, tz: string) {
   const day = (k: string) => daily.get(k) ?? (daily.set(k, { seconds: 0, chapters: 0 }), daily.get(k)!);
   const mon = (k: string) => monthly.get(k) ?? (monthly.set(k, { seconds: 0, chapters: 0, titles: new Set() }), monthly.get(k)!);
   const yr = (k: number) => yearly.get(k) ?? (yearly.set(k, { seconds: 0, chapters: 0 }), yearly.get(k)!);
-  const ttl = (r: any) => titleAgg.get(r.title_id) ?? (titleAgg.set(r.title_id, { titleId: r.title_id, title: r.title ?? 'Unknown', coverUrl: r.cover_url ?? null, source: r.source, seconds: 0, chapters: 0, sessions: 0 }), titleAgg.get(r.title_id)!);
+  const ttl = (r: any) => titleAgg.get(r.title_id) ?? (titleAgg.set(r.title_id, { titleId: r.title_id, title: r.title ?? 'Unknown', coverUrl: proxied(r.cover_url ?? null, r.source), source: r.source, seconds: 0, chapters: 0, sessions: 0 }), titleAgg.get(r.title_id)!);
 
   let totalSeconds = 0, longest: any = null;
   for (const s of sessions) {
@@ -176,9 +177,9 @@ export function computeStats(userId: string, range: string, tz: string) {
       avgChaptersPerActiveDay: activeDates.size ? +(reads.length / activeDates.size).toFixed(1) : 0,
       readingFrequency: +(activeDates.size / spanDays).toFixed(3),
       completionRate: completed.length + dropped.length ? +(completed.length / (completed.length + dropped.length)).toFixed(3) : null,
-      mostRevisited: revisited.map((r) => ({ titleId: r.title_id, title: r.title, coverUrl: r.cover_url, source: r.source, rereads: r.reads - r.chapters })),
+      mostRevisited: revisited.map((r) => ({ titleId: r.title_id, title: r.title, coverUrl: proxied(r.cover_url, r.source), source: r.source, rereads: r.reads - r.chapters })),
       mostAbandoned: dropped.sort((a, b) => b.progress_chapter - a.progress_chapter).slice(0, 5)
-        .map((l) => ({ titleId: l.title_id, title: l.title, coverUrl: l.cover_url, source: l.source, progressChapter: l.progress_chapter, droppedAt: l.updated_at })),
+        .map((l) => ({ titleId: l.title_id, title: l.title, coverUrl: proxied(l.cover_url, l.source), source: l.source, progressChapter: l.progress_chapter, droppedAt: l.updated_at })),
     },
     daily: series,
     monthly: months.map((m) => ({ month: m, seconds: Math.round(monthly.get(m)!.seconds), chapters: monthly.get(m)!.chapters, titles: monthly.get(m)!.titles.size })),
@@ -209,7 +210,7 @@ export function computeWrapped(userId: string, year: number, tz: string) {
   const hours = Array(24).fill(0);
   for (const r of reads) {
     for (const g of json<string[]>(r.genres, [])) genres.set(g, (genres.get(g) ?? 0) + 1);
-    const t = titles.get(r.title_id) ?? { titleId: r.title_id, title: r.title, coverUrl: r.cover_url, source: r.source, chapters: 0 };
+    const t = titles.get(r.title_id) ?? { titleId: r.title_id, title: r.title, coverUrl: proxied(r.cover_url, r.source)!, source: r.source, chapters: 0 };
     t.chapters++;
     titles.set(r.title_id, t);
     const p = parts(r.read_at, tz);
@@ -233,7 +234,7 @@ export function computeWrapped(userId: string, year: number, tz: string) {
     topHour: reads.length ? topHour : null,
     longestStreak: streaks(dates, `${year}-12-31`).longest,
     firstRead: reads[0] ? { title: reads[0].title, titleId: reads[0].title_id, at: reads[0].read_at } : null,
-    completedTitles: completed.slice(0, 24).map((c) => ({ titleId: c.title_id, title: c.title, coverUrl: c.cover_url, source: c.source })),
+    completedTitles: completed.slice(0, 24).map((c) => ({ titleId: c.title_id, title: c.title, coverUrl: proxied(c.cover_url, c.source), source: c.source })),
     persona,
   };
 }

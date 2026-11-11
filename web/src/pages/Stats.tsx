@@ -101,7 +101,7 @@ function Overview({ s, year }: { s: any; year?: any }) {
               return (
                 <li key={x.titleId} className="flex items-center gap-3 text-sm">
                   <span className="w-4 text-muted tabular-nums">{i + 1}</span>
-                  {x.coverUrl ? <img src={x.coverUrl.startsWith('/') ? x.coverUrl : `/api/img?src=${x.source}&u=${enc(x.coverUrl)}`} alt="" className="h-9 w-6 rounded-sm object-cover" /> : <span className="h-9 w-6 rounded-sm bg-surface-2" />}
+                  {x.coverUrl ? <img src={x.coverUrl} alt="" className="h-9 w-6 rounded-sm object-cover" /> : <span className="h-9 w-6 rounded-sm bg-surface-2" />}
                   <div className="flex-1 min-w-0"><Link to={`/title/${enc(x.titleId)}`} className="truncate block hover:text-primary">{x.title}</Link>
                     <div className="h-1 mt-1 rounded-full bg-border overflow-hidden"><div className="h-full bg-primary" style={{ width: `${(x.seconds / max) * 100}%` }} /></div></div>
                   <span className="text-xs text-muted tabular-nums text-right w-20">{duration(x.seconds)}<br />{x.chapters} ch.</span>
