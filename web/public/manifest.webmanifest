@@ -1,0 +1,10 @@
+{
+  "name": "Kimoto",
+  "short_name": "Kimoto",
+  "description": "Read, track and discuss manga, manhwa, webtoons and light novels.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0f17",
+  "theme_color": "#0d0f17",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
