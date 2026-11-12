@@ -3,11 +3,13 @@ import { HttpError } from '../lib/http.js';
 import { anilist } from './anilist.js';
 import { local } from './local.js';
 import { mangadex } from './mangadex.js';
+import { kitsu_ } from './kitsu.js';
+import { mangaupdates } from './mangaupdates.js';
 import type { ChapterMeta, SourceProvider, TitleMeta } from './types.js';
 import { SourceError } from './types.js';
 
 /** Register providers here. Order is the default priority. */
-const providers = new Map<string, SourceProvider>([local, mangadex, anilist].map((p) => [p.id, p]));
+const providers = new Map<string, SourceProvider>([local, mangadex, anilist, kitsu_, mangaupdates].map((p) => [p.id, p]));
 
 export const allProviders = () => [...providers.values()];
 export function provider(id: string): SourceProvider {
@@ -168,6 +170,28 @@ export async function loadPages(chapterId: string, dataSaver = false) {
   } catch (e) {
     if (e instanceof SourceError) throw new HttpError(e.status === 404 ? 404 : 502, e.message);
     throw e;
+  }
+}
+
+/**
+ * Official reading links come from MangaUpdates and AniList. Titles from other catalogs (Kitsu,
+ * MangaDex) that know their AniList id borrow AniList's curated links. Best-effort and cached;
+ * failures leave the title unchanged.
+ */
+const enriched = new Map<string, number>();
+export async function withOfficialLinks(t: TitleDTO): Promise<TitleDTO> {
+  if (t.source === 'anilist' || !t.links.al || Object.keys(t.links).some((k) => k.startsWith('official:'))) return t;
+  if (Date.now() - (enriched.get(t.id) ?? 0) < 6 * 3600_000) return t;
+  enriched.set(t.id, Date.now());
+  try {
+    const al = await provider('anilist').getTitle(t.links.al);
+    const official = Object.fromEntries(Object.entries(al.links ?? {}).filter(([k]) => k.startsWith('official:')));
+    if (!Object.keys(official).length) return t;
+    const links = { ...t.links, ...official };
+    q.run('UPDATE titles SET links = ? WHERE id = ?', JSON.stringify(links), t.id);
+    return { ...t, links };
+  } catch {
+    return t;
   }
 }
 

@@ -8,7 +8,7 @@ import { h, query, HttpError, notFound } from '../lib/http.js';
 import { sha256, timeoutFetch, TTLCache } from '../lib/util.js';
 import { rateLimit } from '../lib/rateLimit.js';
 import {
-  allProviders, provider, userProviders, loadTitle, loadChapters, loadPages, metaToDTO, toTitle, findReadable, splitId,
+  allProviders, provider, userProviders, loadTitle, withOfficialLinks, loadChapters, loadPages, metaToDTO, toTitle, findReadable, splitId,
 } from '../sources/registry.js';
 import { safeJoin } from '../sources/local.js';
 import { CONTENT_TYPES, type DiscoverSection, type SearchFilters } from '../sources/types.js';
@@ -40,9 +40,10 @@ titles.get('/sources/:id/genres', h(async (req) => {
 
 /** Picks the best provider for a discover section from the user's enabled providers. */
 const SECTION_PREFERENCE: Record<string, string[]> = {
-  trending: ['anilist', 'mangadex', 'local'], seasonal: ['anilist'], novels: ['anilist', 'local'],
-  latest: ['mangadex', 'local'], new: ['mangadex', 'anilist', 'local'], popular: ['mangadex', 'anilist', 'local'],
-  top_rated: ['anilist', 'mangadex'], most_followed: ['anilist', 'mangadex'],
+  trending: ['anilist', 'kitsu', 'mangadex', 'local'], seasonal: ['anilist'], novels: ['anilist', 'kitsu', 'mangaupdates', 'local'],
+  latest: ['mangadex', 'local'], new: ['mangadex', 'anilist', 'kitsu', 'mangaupdates', 'local'],
+  popular: ['mangadex', 'anilist', 'kitsu', 'mangaupdates', 'local'],
+  top_rated: ['anilist', 'mangadex', 'kitsu', 'mangaupdates'], most_followed: ['anilist', 'mangadex', 'kitsu', 'mangaupdates'],
 };
 
 titles.get('/discover/:section', h(async (req) => {
@@ -93,10 +94,23 @@ titles.get('/search', rateLimit('search', 40, 60), h(async (req) => {
   const results = await Promise.allSettled(targets.map(async (p) => ({ p, r: await p.search(f as SearchFilters) })));
   const errors = results.flatMap((r, i) => (r.status === 'rejected' ? [{ source: targets[i].id, error: (r.reason as Error).message }] : []));
   const ok = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
-  // Interleave results across providers so one source doesn't bury the others.
+  // Interleave results across providers so one source doesn't bury the others. Several metadata
+  // catalogs describe the same series, so a metadata result is dropped when an earlier result
+  // (in source-priority order) already covers that title; readable results are always kept.
   const items: any[] = [];
+  const seen = new Set<string>();
+  const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
   const max = Math.max(0, ...ok.map((x) => x.r.items.length));
-  for (let i = 0; i < max; i++) for (const { p, r } of ok) if (r.items[i]) items.push(metaToDTO(p.id, r.items[i]));
+  for (let i = 0; i < max; i++) {
+    for (const { p, r } of ok) {
+      const m = r.items[i];
+      if (!m) continue;
+      const keys = [m.title, ...(m.altTitles ?? []).slice(0, 5)].map((t) => `${m.type}:${norm(t)}`);
+      if (p.kind === 'metadata' && keys.some((k) => seen.has(k))) continue;
+      keys.forEach((k) => seen.add(k));
+      items.push(metaToDTO(p.id, m));
+    }
+  }
   if (!ok.length && errors.length) throw new HttpError(502, errors.map((e) => `${e.source}: ${e.error}`).join(' · '));
   return { items, hasMore: ok.some((x) => x.r.hasMore), errors, total: ok.reduce((n, x) => n + (x.r.total ?? 0), 0) };
 }));
@@ -122,7 +136,7 @@ titles.get('/recommendations', h(async (req) => {
 }));
 
 titles.get('/titles/:id', h(async (req) => {
-  const t = await loadTitle(req.params.id, { refresh: req.query.refresh === '1' });
+  const t = await withOfficialLinks(await loadTitle(req.params.id, { refresh: req.query.refresh === '1' }));
   const community = q.get(`SELECT COUNT(*) members, AVG(rating) avg_rating, COUNT(rating) ratings, SUM(favorite) favorites,
                             SUM(status = 'reading') reading, SUM(status = 'completed') completed FROM library_entries WHERE title_id = ?`, t.id);
   const entry = req.user ? q.get('SELECT * FROM library_entries WHERE user_id = ? AND title_id = ?', req.user.id, t.id) : null;

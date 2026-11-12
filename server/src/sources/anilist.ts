@@ -2,6 +2,18 @@ import { config } from '../config.js';
 import { TTLCache, timeoutFetch } from '../lib/util.js';
 import type { ContentType, DiscoverSection, SearchFilters, SearchResult, SourceProvider, TitleMeta } from './types.js';
 import { SourceError } from './types.js';
+import { OFFICIAL_PREFIX, officialLabel } from './official.js';
+
+/** AniList curates official reading platforms as STREAMING links (MANGA Plus, VIZ, WEBTOON…). */
+function officialFromAniList(links: any[] | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const l of links ?? []) {
+    if (l?.type !== 'STREAMING' || !/^https:\/\//.test(l.url ?? '')) continue;
+    const key = `${OFFICIAL_PREFIX}${officialLabel(l.site, l.language)}`;
+    if (!out[key] && Object.keys(out).length < 24) out[key] = l.url;
+  }
+  return out;
+}
 
 /**
  * AniList metadata provider (public GraphQL API, https://docs.anilist.co).
@@ -40,6 +52,7 @@ export const FIELDS = `
   title { romaji english native userPreferred } synonyms description(asHtml: false)
   coverImage { extraLarge large color } bannerImage genres tags { name rank isMediaSpoiler }
   staff(perPage: 6, sort: RELEVANCE) { edges { role node { name { full } } } }
+  externalLinks { url site type language }
 `;
 
 function typeOf(m: any): ContentType {
@@ -74,7 +87,7 @@ export function anilistToMeta(m: any): TitleMeta {
     originalLanguage: { JP: 'ja', KR: 'ko', CN: 'zh', TW: 'zh-hk' }[m.countryOfOrigin as string] ?? null,
     rating: m.averageScore != null ? m.averageScore / 10 : null,
     follows: m.popularity ?? null,
-    links: { al: String(m.id), ...(m.idMal ? { mal: String(m.idMal) } : {}) },
+    links: { al: String(m.id), ...(m.idMal ? { mal: String(m.idMal) } : {}), ...officialFromAniList(m.externalLinks) },
     chapterCount: m.chapters ?? null,
   };
 }

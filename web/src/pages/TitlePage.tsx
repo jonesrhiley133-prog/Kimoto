@@ -8,6 +8,7 @@ import { useAuth, useToast } from '@/hooks/app';
 import { chapterLabel, cls, num, STATUS_LABEL, timeAgo, TYPE_LABEL } from '@/lib/format';
 import type { Chapter, Entry, Title } from '@/lib/types';
 import { enqueue } from '@/lib/offline';
+import { openExternal } from '@/lib/native';
 import { Avatar, Cover, ErrorState, Modal, PageLoader, RichText, Select, Spinner, Spoiler, Stars, Tabs, UserLink } from '@/components/ui';
 import { AddToListButton, LibraryButton, ReportButton, TitleCard, TitleRow, titleHref } from '@/components/titles';
 
@@ -64,6 +65,7 @@ export default function TitlePage() {
             <AddToListButton title={t} />
             {entry && <NotifyToggle title={t} entry={entry} />}
           </div>
+          <OfficialLinks links={t.links} />
         </div>
       </div>
 
@@ -118,6 +120,40 @@ export default function TitlePage() {
             </div>
           )}
         </aside>
+      </div>
+    </div>
+  );
+}
+
+/** Official links are stored in `title.links` as "official:<Platform (Language)>" → url. */
+function officialLinks(links: Record<string, string>) {
+  return Object.entries(links)
+    .filter(([k, v]) => k.startsWith('official:') && /^https?:\/\//.test(v))
+    .map(([k, url]) => {
+      const label = k.slice('official:'.length);
+      const [, platform, detail] = label.match(/^(.*?)(?: \((.+)\))?$/) ?? [, label, undefined];
+      return { platform: platform!, detail, url };
+    });
+}
+
+function OfficialLinks({ links, bare }: { links: Record<string, string>; bare?: boolean }) {
+  const [all, setAll] = useState(false);
+  const list = officialLinks(links);
+  if (!list.length) return null;
+  // English first, then the rest; collapse long lists.
+  const sorted = [...list].sort((a, b) => Number(b.detail === 'English') - Number(a.detail === 'English'));
+  const shown = all ? sorted : sorted.slice(0, 5);
+  return (
+    <div className={cls(!bare && 'mt-4')}>
+      {!bare && <div className="text-xs text-muted mb-1.5">Read officially</div>}
+      <div className="flex flex-wrap gap-1.5">
+        {shown.map((l) => (
+          <a key={l.url + l.detail} href={l.url} target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); openExternal(l.url); }}
+            className="chip h-8 px-3 text-sm text-fg border-success/40 hover:border-success/70">
+            <ExternalLink className="h-3.5 w-3.5 text-success" />{l.platform}{l.detail && <span className="text-muted">· {l.detail}</span>}
+          </a>
+        ))}
+        {sorted.length > 5 && <button className="chip h-8" onClick={() => setAll(!all)}>{all ? 'Show less' : `+${sorted.length - 5} more`}</button>}
       </div>
     </div>
   );
@@ -249,7 +285,14 @@ function ReadableSources({ title }: { title: Title }) {
   const q = useQuery({ queryKey: ['readable', title.id], queryFn: () => api.get<{ source: string; sourceName: string; title: Title }[]>(`/titles/${enc(title.id)}/readable`) });
   return (
     <div>
-      <p className="text-sm text-muted mb-4">{title.source} provides information only. Here are matching titles on your enabled reading sources:</p>
+      {officialLinks(title.links).length > 0 && (
+        <div className="card p-4 mb-5">
+          <h3 className="font-medium text-sm mb-1">Read officially</h3>
+          <p className="text-xs text-muted mb-3">Licensed releases on the publishers' own sites and apps. Reading there supports the creators.</p>
+          <OfficialLinks links={title.links} bare />
+        </div>
+      )}
+      <p className="text-sm text-muted mb-4">This catalog provides information only. Here are matching titles on your enabled reading sources:</p>
       {q.isLoading ? <Spinner /> : q.error ? <ErrorState error={q.error} retry={q.refetch} /> : !q.data?.length ? (
         <div className="card p-5 text-sm text-muted">No readable copies found on your enabled sources. Try enabling more sources in <Link to="/settings/sources" className="link">Settings → Sources</Link>, or look for an official release{title.links.engtl ? <> — <a href={title.links.engtl} className="link" target="_blank" rel="noreferrer">official English</a></> : ''}.</div>
       ) : (

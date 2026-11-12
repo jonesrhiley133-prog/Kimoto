@@ -8,7 +8,14 @@ Kimoto never hard-codes a website into the reader. Every catalog is a **source p
 |---|---|---|
 | `local` | content | Serves manga, comics and novels you own from a folder on the server. Works offline, and downloads are allowed. |
 | `mangadex` | content | Uses the official MangaDex API: search, filters, chapter feeds, at-home image delivery and scanlation-group credits. Externally hosted (official) chapters open on the publisher's site. |
-| `anilist` | metadata | Uses AniList's public GraphQL API: trending, seasonal, top-rated and light novel discovery. It has no chapters, so title pages show **Where to read**, which matches the title against your enabled content sources. |
+| `anilist` | metadata | Uses AniList's public GraphQL API: trending, seasonal, top-rated and light novel discovery, plus AniList's curated official reading links. |
+| `kitsu` | metadata | Uses Kitsu's public JSON:API: manga, manhwa, manhua and light novels. Each title maps to its MyAnimeList, AniList and MangaUpdates IDs, so it syncs with trackers and matches readable copies. |
+| `mangaupdates` | metadata | Uses MangaUpdates' public API: series data, ratings, licensing, and where each series is officially published. |
+
+Metadata providers have no chapters. Their title pages show **Where to read**, which lists:
+
+- **Read officially:** licensed releases on publishers' own sites and apps (MANGA Plus, VIZ, WEBTOON, K MANGA and so on), taken from MangaUpdates and from AniList's curated links. These open on the publisher's site; Kimoto never fetches or re-hosts their pages.
+- **Matches on your enabled reading sources,** found by title and tracker IDs.
 
 Users enable, disable and reorder providers in **Settings → Sources**.
 
