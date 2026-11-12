@@ -1,0 +1,12 @@
+{
+  "name": "@kimoto/companion",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Desktop companion that relays Kimoto reading activity to Discord Rich Presence",
+  "type": "module",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "@xhayper/discord-rpc": "^1.2.0",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "kimoto",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Kimoto \u2014 a manga, manhwa, webtoon and light novel reading platform",
+  "workspaces": [
+    "server",
+    "web",
+    "companion"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm run start -w server",
+    "seed": "npm run seed -w server --",
+    "test": "npm run test -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "companion": "npm run start -w companion",
+    "android": "npm run android:sync -w web",
+    "android:apk": "npm run android:apk -w web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
