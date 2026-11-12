@@ -8,8 +8,9 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes these; local builds fall back to 1 / 0.1.0.
-        versionCode (System.getenv("KIMOTO_VERSION_CODE") ?: "1").toInteger()
-        versionName System.getenv("KIMOTO_VERSION_NAME") ?: "0.1.0"
+        // Assignment form on purpose: `versionCode (x).toInteger()` parses as `versionCode(x).toInteger()`.
+        versionCode = (System.getenv("KIMOTO_VERSION_CODE") ?: "1") as Integer
+        versionName = System.getenv("KIMOTO_VERSION_NAME") ?: "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
