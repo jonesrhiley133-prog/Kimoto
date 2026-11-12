@@ -27,7 +27,8 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: gradle
-      - uses: android-actions/setup-android@v3
+      # GitHub's Ubuntu runners ship the Android SDK (ANDROID_HOME); Gradle installs the platform it needs.
+      - run: echo "sdk.dir=$ANDROID_HOME" > web/android/local.properties
 
       - run: npm ci
       - name: Build web bundle and sync it into the Android project
